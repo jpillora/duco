@@ -10,11 +10,5 @@ echo "deploy..."
 aws lambda update-function-code \
   --function-name bash-runtime \
   --zip-file fileb://function.zip
-echo "invoke..."
-aws lambda invoke \
-  --function-name bash-runtime \
-  --payload '{"text":"Hello"}' \
-  /tmp/out.txt
-echo "output:"
-cat /tmp/out.txt
-rm /tmp/out.txt
+#
+./invoke.sh
