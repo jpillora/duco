@@ -1,13 +1,13 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 func New() *Runtime {
@@ -19,14 +19,26 @@ func New() *Runtime {
 
 type Runtime struct {
 	env
-	fns map[string]Func
+	fns     map[string]Func
+	invokes int
 }
 
 func (r *Runtime) HandleFunc(name string, fn Func) {
 	r.fns[name] = fn
 }
 
+//Start the gambda runtime
 func (r *Runtime) Start() error {
+	err := r.start()
+	if err != nil {
+		//tell lambda hypervisor about this...
+		url := fmt.Sprintf("http://%s/2018-06-01/runtime/init/error", r.env.api)
+		http.Post(url, "application/octet-stream", strings.NewReader(err.Error()))
+	}
+	return err
+}
+
+func (r *Runtime) start() error {
 	if r.env.dev {
 		return r.startDevelopment()
 	}
@@ -37,52 +49,124 @@ func (r *Runtime) startDevelopment() error {
 	panic("no implemented")
 }
 
+func (r *Runtime) fn() Func {
+	fn, ok := r.fns["myhandler"]
+	if !ok {
+		panic("no func")
+	}
+	return fn
+}
+
 func (r *Runtime) startLambda() error {
 	for {
-		log.Printf("invoke next...")
 		if err := r.invokeNext(); err != nil {
-			return r.invokeNext()
+			return err
 		}
-		time.Sleep(time.Second)
+		r.invokes++
 	}
 }
 
 func (r *Runtime) invokeNext() error {
+	//blocks here while we wait for next request
 	resp, err := http.Get(fmt.Sprintf("http://%s/2018-06-01/runtime/invocation/next", r.env.api))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	reqID := resp.Header.Get("Lambda-Runtime-Aws-Request-Id")
-	log.Printf("[invocation %s] start", reqID)
-
-	fn, ok := r.fns["myhandler"]
-	if !ok {
-		panic("no func")
+	//invoke!
+	inv := invocation{
+		r:       r,
+		n:       r.invokes,
+		headers: resp.Header,
+		fnIn:    resp.Body,
 	}
+	inv.handle()
+	return nil
+}
 
-	eg := errgroup.Group{}
+type invocation struct {
+	//params:
+	r       *Runtime
+	n       int
+	headers http.Header
+	fnIn    io.ReadCloser
+	//computed:
+	fnOut     io.WriteCloser
+	respIn    io.ReadCloser
+	written   bool
+	responded bool
+}
 
-	pr, pw := io.Pipe()
+func (i *invocation) id() string {
+	return i.headers.Get("Lambda-Runtime-Aws-Request-Id")
+}
 
-	eg.Go(func() error {
-		input := resp.Body
-		output := pw
-		err := fn(input, output)
-		pw.Close()
-		log.Printf("[invocation %s] handled %v", reqID, err)
-		return err
-	})
+func (i *invocation) logf(format string, args ...interface{}) {
+	id := i.id()
+	prefix := fmt.Sprintf("[invocation %s#%d] ", id[0:6], i.n)
+	log.Printf(prefix+format, args...)
+}
 
-	eg.Go(func() error {
-		url := fmt.Sprintf("http://%s/2018-06-01/runtime/invocation/%s/response", r.env.api, reqID)
-		resp, err := http.Post(url, "application/octet-stream", pr)
-		if err != nil {
-			return err
-		}
-		log.Printf("[invocation %s] responded -> %s", reqID, http.StatusText(resp.StatusCode))
-		return nil
-	})
+func (i *invocation) handle() {
+	//time
+	t0 := time.Now()
+	i.logf("start")
+	defer func() { i.logf("took %s", time.Since(t0)) }()
+	//handle only executes while fn blocks,
+	//defer cancel communicates this downstream into fn
+	inner, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx := gcontext{
+		inner:   inner,
+		headers: i.headers,
+	}
+	//pipe output of user function,
+	//into the bootstrap response
+	i.respIn, i.fnOut = io.Pipe()
+	//execute function
+	fn := i.r.fn()
+	fnOutWrapper := io.WriteCloser(i)
+	//fn can either
+	//error: and respond with a static string
+	//success: and respond with a stream
+	if err := fn(&ctx, i.fnIn, fnOutWrapper); err != nil {
+		i.logf("errored: %s", err)
+		i.respond(true, strings.NewReader(err.Error()))
+	}
+	//close pipe which closes response body
+	i.fnOut.Close()
+}
 
-	return eg.Wait()
+func (i *invocation) Write(b []byte) (int, error) {
+	//pipe fnOut to respIn on *first* write
+	if !i.written {
+		i.written = true
+		go i.respond(false, i.respIn)
+	}
+	return i.fnOut.Write(b)
+}
+
+func (i *invocation) Close() error {
+	return i.fnOut.Close()
+}
+
+func (i *invocation) respond(errd bool, body io.Reader) {
+	if i.responded {
+		return
+	}
+	i.responded = true
+	action := "response"
+	if errd {
+		action = "error"
+	}
+	url := fmt.Sprintf(
+		"http://%s/2018-06-01/runtime/invocation/%s/%s",
+		i.r.env.api, i.id(), action,
+	)
+	resp, err := http.Post(url, "application/octet-stream", body)
+	if err != nil {
+		panic(err)
+	} else {
+		i.logf("%s %s", action, http.StatusText(resp.StatusCode))
+	}
 }

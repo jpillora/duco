@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"log"
 	"os"
@@ -18,9 +19,10 @@ import (
 )
 
 type cli struct {
-	Name string `opts:"help=function name"`
-	Role string `opts:"help=role name"`
-	App  string `opts:"mode=arg, help=target <app> to compile"`
+	Name    string `opts:"help=function name"`
+	Role    string `opts:"help=role name"`
+	App     string `opts:"mode=arg, help=target <app> to compile"`
+	Payload string
 }
 
 var c = cli{
@@ -57,7 +59,7 @@ func main() {
 		}
 	}
 
-	if err := invokeApp(); err != nil {
+	if err := invokeApp(c.Payload); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -130,12 +132,18 @@ func deployApp(exists bool, z []byte) error {
 	return nil
 }
 
-func invokeApp() error {
+func invokeApp(payload string) error {
+
+	if payload == "" {
+		payload = `{"hello":"world"}`
+	}
+
 	t0 := time.Now()
 	out, err := l.Invoke(&lambda.InvokeInput{
-		LogType:      aws.String("Tail"),
-		FunctionName: aws.String(c.Name),
-		Payload:      []byte(`{"hello":"world"}`),
+		LogType:       aws.String("Tail"),
+		FunctionName:  aws.String(c.Name),
+		Payload:       []byte(payload),
+		ClientContext: testContext(),
 	})
 	if err != nil {
 		return err
@@ -143,7 +151,7 @@ func invokeApp() error {
 	log.Printf("invoked: %s (took %s)", c.Name, time.Since(t0))
 	if r := out.LogResult; r != nil {
 		if b, err := base64.StdEncoding.DecodeString(*r); err == nil {
-			log.Printf("logs: %s", string(b))
+			log.Printf("logs:\n%s", string(b))
 		}
 	}
 	if p := out.Payload; p != nil {
@@ -156,4 +164,11 @@ func hash(z []byte) string {
 	h := sha256.New()
 	h.Write(z)
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+}
+
+func testContext() *string {
+	obj := map[string]string{"foo": "bar"}
+	b, _ := json.Marshal(obj)
+	s := base64.StdEncoding.EncodeToString(b)
+	return aws.String(s)
 }
