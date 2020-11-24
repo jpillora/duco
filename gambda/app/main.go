@@ -33,6 +33,7 @@ func main() {
 			"deadline":  ctx.FunctionDeadline(),
 			"clientctx": client,
 			"input":     string(b),
+			"arn":       ctx.InvokedFunctionARN(),
 		})
 	})
 

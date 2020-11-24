@@ -8,5 +8,4 @@ require (
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/jpillora/opts v1.2.0
 	github.com/posener/complete v1.2.3 // indirect
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 )
