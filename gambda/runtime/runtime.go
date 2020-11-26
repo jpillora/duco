@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"gambda"
 	"io"
 	"log"
 	"net/http"
@@ -13,18 +14,18 @@ import (
 func New() *Runtime {
 	return &Runtime{
 		env: loadEnv(),
-		fns: map[string]Func{},
+		fns: map[string]gambda.Func{},
 	}
 }
 
 type Runtime struct {
 	env
-	fns     map[string]Func
+	fns     map[string]gambda.Func
 	invokes int
 }
 
-func (r *Runtime) HandleFunc(name string, fn Func) {
-	r.fns[name] = fn
+func (r *Runtime) HandleFunc(fn gambda.Func) {
+	r.fns[fn.Name()] = fn
 }
 
 //Start the gambda runtime
@@ -46,10 +47,11 @@ func (r *Runtime) start() error {
 }
 
 func (r *Runtime) startDevelopment() error {
-	panic("no implemented")
+	log.Printf("listening on 8081...")
+	return http.ListenAndServe(":8081", nil)
 }
 
-func (r *Runtime) fn() Func {
+func (r *Runtime) fn() gambda.Func {
 	fn, ok := r.fns["myhandler"]
 	if !ok {
 		panic("no func")
@@ -139,7 +141,7 @@ func (i *invocation) handle() {
 	//fn can either
 	//error: and respond with a static string
 	//success: and respond with a stream
-	if err := fn(&ctx, i.fnIn, fnOutWrapper); err != nil {
+	if err := fn.Handle(&ctx, i.fnIn, fnOutWrapper); err != nil {
 		i.logf("errored: %s", err)
 		i.respond(true, strings.NewReader(err.Error()))
 	}

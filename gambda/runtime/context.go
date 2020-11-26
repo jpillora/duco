@@ -8,18 +8,6 @@ import (
 	"time"
 )
 
-//Context is a gambda context
-type Context interface {
-	//Invoke context
-	context.Context
-	//Lambda context
-	FunctionDeadline() time.Time
-	DecodeClient(v interface{}) error
-	TraceID() string
-	CognitoIdentity() string
-	InvokedFunctionARN() string
-}
-
 type gcontext struct {
 	inner   context.Context
 	headers http.Header

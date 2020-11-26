@@ -28,7 +28,7 @@ type deploy struct {
 
 func (d *deploy) Run() error {
 	//package app into a zip file
-	z, err := packageApp(d.AppDir)
+	z, err := CompileZip(d.AppDir, true)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,6 +64,9 @@ func (d *deploy) create(z []byte) error {
 		Publish:      aws.Bool(true),
 		MemorySize:   aws.Int64(128),
 		Timeout:      aws.Int64(5),
+		Layers: []*string{
+			aws.String("arn:aws:lambda:ap-southeast-2:652507618334:layer:gambda-bootstrap:1"),
+		},
 	})
 	if err != nil {
 		return err

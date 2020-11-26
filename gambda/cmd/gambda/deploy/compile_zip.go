@@ -9,14 +9,16 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
-func packageApp(target string) ([]byte, error) {
+func CompileZip(target string, plugin bool) ([]byte, error) {
 	//prepare buffer holding a zip "file"
 	b := bytes.Buffer{}
 	zw := zip.NewWriter(&b)
 	fh := &zip.FileHeader{
-		Name:   "bootstrap",
+		Name:   filepath.Base(target),
 		Method: zip.Deflate,
 	}
 	fh.SetMode(os.ModePerm) //777
@@ -30,16 +32,30 @@ func packageApp(target string) ([]byte, error) {
 	} else if !s.IsDir() {
 		return nil, errors.New("target is not a dir")
 	}
+
+	mode := "default"
+	if plugin {
+		mode = "plugin"
+	}
 	//compile target directly into the buffer
-	c := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-v", "-o", "/dev/stdout")
-	c.Env = append(os.Environ(), "GOOS=linux")
+	args := []string{"build",
+		"-buildmode=" + mode,
+		"-trimpath",
+		"-ldflags", "-v -s -w",
+		"-v",
+		"-o", "/dev/stdout",
+		target,
+	}
+	log.Printf("go %s", strings.Join(args, " "))
+	c := exec.Command("go", args...)
+	c.Env = append(os.Environ(), "GOOS=linux", "CGO_ENABLED=0")
 	c.Stderr = os.Stderr
 	c.Stdout = fz
 	c.Dir = target
 	if err := c.Run(); err != nil {
 		return nil, errors.New("target build failed")
 	}
-	log.Printf("compiled: %s", target)
+	log.Printf("compiled: %s", fh.Name)
 	if err := zw.Close(); err != nil {
 		return nil, err
 	}
