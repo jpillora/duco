@@ -24,7 +24,7 @@ type Runtime struct {
 	invokes int
 }
 
-func (r *Runtime) HandleFunc(fn gambda.Func) {
+func (r *Runtime) Add(fn gambda.Func) {
 	r.fns[fn.Name()] = fn
 }
 

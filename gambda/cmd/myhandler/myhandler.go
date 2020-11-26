@@ -1,4 +1,4 @@
-package main
+package myhandler
 
 import (
 	"bytes"
@@ -29,17 +29,17 @@ func (h *myhandler) Handle(ctx gambda.Context, input io.Reader, output io.Writer
 		return fmt.Errorf("it errored '%s'", b)
 	}
 
-	var client interface{}
-	ctx.DecodeClient(&client)
+	var v interface{}
+	ctx.DecodeClient(&v)
 
 	e := json.NewEncoder(output)
 	e.SetIndent("", "  ")
 	return e.Encode(map[string]interface{}{
-		"traceid":   ctx.TraceID(),
-		"cogid":     ctx.CognitoIdentity(),
-		"deadline":  ctx.FunctionDeadline(),
-		"clientctx": client,
-		"input":     string(b),
-		"arn":       ctx.InvokedFunctionARN(),
+		"trace-id": ctx.TraceID(),
+		"cog-id":   ctx.CognitoIdentity(),
+		"deadline": ctx.FunctionDeadline(),
+		"client":   v,
+		"input":    string(b),
+		"arn":      ctx.InvokedFunctionARN(),
 	})
 }
