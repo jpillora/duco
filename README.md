@@ -1,4 +1,4 @@
-# gambda
+# duco
 
 ### Development
 
@@ -6,7 +6,7 @@
 package main
 
 func main() {
-    g := gambda.New()
+    g := duco.New()
     g.Add(myhandler.New())
     g.Start()
 }
@@ -16,6 +16,6 @@ func main() {
 
 ```sh
 #!/bin/bash
-gambda deploy <path-to-my-handler>
+duco deploy <path-to-my-handler>
 ```
 

@@ -1,4 +1,4 @@
-module gambda
+module github.com/jpillora/duco
 
 go 1.13
 

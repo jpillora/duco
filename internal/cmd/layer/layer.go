@@ -1,8 +1,9 @@
 package layer
 
 import (
-	"gambda/cmd/gambda/deploy"
 	"log"
+
+	"github.com/jpillora/duco/internal/cmd/deploy"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -14,8 +15,6 @@ func Command() opts.Opts {
 	return opts.
 		New(&layer{
 			l: lambda.New(session.New()),
-			// Name: "go-raw-runtime",
-			// Role: "arn:aws:iam::652507618334:role/lambda-role",
 		}).
 		Name("layer")
 }
@@ -33,7 +32,7 @@ func (l *layer) Run() error {
 	}
 
 	out, err := l.l.PublishLayerVersion(&lambda.PublishLayerVersionInput{
-		LayerName: aws.String("gambda-bootstrap"),
+		LayerName: aws.String("duco-bootstrap"),
 		Content: &lambda.LayerVersionContentInput{
 			ZipFile: z,
 		},

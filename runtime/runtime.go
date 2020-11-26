@@ -3,32 +3,33 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"gambda"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/jpillora/duco"
 )
 
 func New() *Runtime {
 	return &Runtime{
 		env: loadEnv(),
-		fns: map[string]gambda.Func{},
+		fns: map[string]duco.Func{},
 	}
 }
 
 type Runtime struct {
 	env
-	fns     map[string]gambda.Func
+	fns     map[string]duco.Func
 	invokes int
 }
 
-func (r *Runtime) Add(fn gambda.Func) {
+func (r *Runtime) Add(fn duco.Func) {
 	r.fns[fn.Name()] = fn
 }
 
-//Start the gambda runtime
+//Start the duco runtime
 func (r *Runtime) Start() error {
 	err := r.start()
 	if err != nil {
@@ -51,7 +52,7 @@ func (r *Runtime) startDevelopment() error {
 	return http.ListenAndServe(":8081", nil)
 }
 
-func (r *Runtime) fn() gambda.Func {
+func (r *Runtime) fn() duco.Func {
 	fn, ok := r.fns["myhandler"]
 	if !ok {
 		panic("no func")

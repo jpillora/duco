@@ -1,4 +1,4 @@
-package gambda
+package duco
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"time"
 )
 
-//Context is a gambda context
+//Context is a duco context
 type Context interface {
-	//Invoke context
+	//Runtime context
 	context.Context
 	//Lambda context
 	FunctionDeadline() time.Time

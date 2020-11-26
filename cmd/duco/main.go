@@ -1,9 +1,9 @@
 package main
 
 import (
-	"gambda/cmd/gambda/deploy"
-	"gambda/cmd/gambda/invoke"
-	"gambda/cmd/gambda/layer"
+	"github.com/jpillora/duco/internal/cmd/deploy"
+	"github.com/jpillora/duco/internal/cmd/invoke"
+	"github.com/jpillora/duco/internal/cmd/layer"
 
 	"github.com/jpillora/opts"
 )
@@ -11,7 +11,7 @@ import (
 func main() {
 	opts.
 		New(&struct{}{}).
-		Name("gambda").
+		Name("github.com/jpillora/duco").
 		AddCommand(deploy.Command()).
 		AddCommand(invoke.Command()).
 		AddCommand(layer.Command()).
