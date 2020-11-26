@@ -23,22 +23,28 @@ type deploy struct {
 	l      *lambda.Lambda
 	Role   string `opts:"help=role name"`
 	AppDir string `opts:"mode=arg, help=target <app> to compile"`
-}
-
-func (d *deploy) fnName() string {
-	return filepath.Base(d.AppDir)
+	//
+	fnName string
 }
 
 func (d *deploy) Run() error {
+	appDir, err := filepath.Abs(d.AppDir)
+	if err != nil {
+		return err
+	}
+	d.AppDir = appDir
+	d.fnName = filepath.Base(appDir)
+	log.Printf("compiling %s", d.AppDir)
 	//package app into a zip file
-	z, err := CompileZip(d.AppDir, true)
+	z, err := compileZip(d.AppDir)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("compiled and zipped %s", d.AppDir)
 	//see if we need to deploy
 	zipHash := hash(z)
 	out, err := d.l.GetFunction(&lambda.GetFunctionInput{
-		FunctionName: aws.String(d.fnName()),
+		FunctionName: aws.String(d.fnName),
 	})
 	exists := err == nil
 	deployed := false
@@ -60,16 +66,16 @@ func (d *deploy) create(z []byte) error {
 	log.Printf("creating function...")
 	conf, err := d.l.CreateFunction(&lambda.CreateFunctionInput{
 		Code:         &lambda.FunctionCode{ZipFile: z},
-		FunctionName: aws.String(d.fnName()),
+		FunctionName: aws.String(d.fnName),
 		Handler:      aws.String("myhandler"),
 		Role:         aws.String(d.Role),
 		Runtime:      aws.String("provided"),
 		Publish:      aws.Bool(true),
 		MemorySize:   aws.Int64(128),
 		Timeout:      aws.Int64(5),
-		Layers: []*string{
-			aws.String("arn:aws:lambda:ap-southeast-2:652507618334:layer:duco-bootstrap:1"),
-		},
+		// Layers: []*string{
+		// 	aws.String("arn:aws:lambda:ap-southeast-2:652507618334:layer:duco-bootstrap:1"),
+		// },
 	})
 	if err != nil {
 		return err
@@ -82,7 +88,7 @@ func (d *deploy) update(z []byte) error {
 	log.Printf("updating function code...")
 	conf, err := d.l.UpdateFunctionCode(&lambda.UpdateFunctionCodeInput{
 		ZipFile:      z,
-		FunctionName: aws.String(d.fnName()),
+		FunctionName: aws.String(d.fnName),
 		Publish:      aws.Bool(true),
 	})
 	if err != nil {

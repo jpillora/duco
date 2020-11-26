@@ -3,8 +3,6 @@ package layer
 import (
 	"log"
 
-	"github.com/jpillora/duco/internal/cmd/deploy"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/lambda"
@@ -26,15 +24,15 @@ type layer struct {
 
 func (l *layer) Run() error {
 
-	z, err := deploy.CompileZip(l.BootstrapPath, false)
-	if err != nil {
-		return err
-	}
+	// z, err := deploy.CompileZip(l.BootstrapPath, false)
+	// if err != nil {
+	// 	return err
+	// }
 
 	out, err := l.l.PublishLayerVersion(&lambda.PublishLayerVersionInput{
 		LayerName: aws.String("duco-bootstrap"),
-		Content: &lambda.LayerVersionContentInput{
-			ZipFile: z,
+		Content:   &lambda.LayerVersionContentInput{
+			// ZipFile: z,
 		},
 	})
 	if err != nil {
