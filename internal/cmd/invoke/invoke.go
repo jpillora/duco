@@ -3,7 +3,10 @@ package invoke
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -16,19 +19,22 @@ func Command() opts.Opts {
 	return opts.
 		New(&invoke{
 			l:       lambda.New(session.New()),
-			Name:    "go-raw-runtime",
-			Payload: `{"hello":"world"}`,
+			Payload: ``,
 		}).
 		Name("invoke")
 }
 
 type invoke struct {
 	l       *lambda.Lambda
-	Name    string `opts:"help=function name"`
-	Payload string `opts:"help=invoke payload"`
+	Name    string `opts:"mode=arg,help=function name"`
+	Payload string `opts:"help=invoke payload (defaults to stdin)"`
 }
 
 func (i *invoke) Run() error {
+	if i.Payload == "" {
+		b, _ := ioutil.ReadAll(os.Stdin)
+		i.Payload = string(b)
+	}
 	t0 := time.Now()
 	out, err := i.l.Invoke(&lambda.InvokeInput{
 		LogType:       aws.String("Tail"),
@@ -46,7 +52,7 @@ func (i *invoke) Run() error {
 		}
 	}
 	if p := out.Payload; p != nil {
-		log.Printf("payload: %s", string(p))
+		fmt.Println(string(p))
 	}
 	return nil
 }

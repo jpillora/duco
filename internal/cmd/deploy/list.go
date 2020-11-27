@@ -12,9 +12,12 @@ type goList struct {
 	ImportPath string
 	Module     struct {
 		Path  string
-		Main  bool
 		GoMod string
 	}
+}
+
+func (l goList) IsMain() bool {
+	return l.Name == "main"
 }
 
 func list(goDir string) (l goList, err error) {
@@ -24,7 +27,6 @@ func list(goDir string) (l goList, err error) {
 		return json.NewDecoder(r).Decode(&l)
 	})
 	eg.Go(func() error {
-
 		err := goExec(w, goDir, "list", "-json")
 		w.Close()
 		return err
@@ -32,14 +34,6 @@ func list(goDir string) (l goList, err error) {
 	err = eg.Wait()
 	return
 }
-
-// "Module": {
-// 	"Path": "github.com/jpillora/duco",
-// 	"Main": true,
-// 	"Dir": "/Users/jpillora/Code/Go/src/github.com/jpillora/duco",
-// 	"GoMod": "/Users/jpillora/Code/Go/src/github.com/jpillora/duco/go.mod",
-// 	"GoVersion": "1.13"
-// }
 
 /*
 {

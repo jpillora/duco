@@ -3,6 +3,7 @@ package deploy
 import (
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -13,16 +14,18 @@ import (
 func Command() opts.Opts {
 	return opts.
 		New(&deploy{
-			l:    lambda.New(session.New()),
-			Role: "arn:aws:iam::652507618334:role/lambda-role",
+			l:       lambda.New(session.New()),
+			Role:    "arn:aws:iam::652507618334:role/audifree-role",
+			Timeout: 5 * time.Second,
 		}).
 		Name("deploy")
 }
 
 type deploy struct {
-	l      *lambda.Lambda
-	Role   string `opts:"help=role name"`
-	AppDir string `opts:"mode=arg, help=target <app> to compile"`
+	l       *lambda.Lambda
+	Role    string        `opts:"help=function role ARN"`
+	Timeout time.Duration `opts:"help=function timeout"`
+	AppDir  string        `opts:"mode=arg, help=target <app> to compile"`
 	//
 	fnName string
 }
@@ -54,10 +57,14 @@ func (d *deploy) Run() error {
 	}
 	//differs? re-deploy
 	if deployed {
+		log.Printf("function already deployed")
 		return nil
 	}
 	if exists {
-		return d.update(z)
+		if err := d.destroy(); err != nil {
+			return err
+		}
+		// return d.update(z)
 	}
 	return d.create(z)
 }
@@ -71,13 +78,15 @@ func (d *deploy) create(z []byte) error {
 		Role:         aws.String(d.Role),
 		Runtime:      aws.String("provided"),
 		Publish:      aws.Bool(true),
-		MemorySize:   aws.Int64(128),
-		Timeout:      aws.Int64(5),
-		// Layers: []*string{
-		// 	aws.String("arn:aws:lambda:ap-southeast-2:652507618334:layer:duco-bootstrap:1"),
-		// },
+		MemorySize:   aws.Int64(2048),
+		Timeout:      aws.Int64(int64(d.Timeout.Seconds())),
+		Layers: []*string{
+			aws.String("arn:aws:lambda:ap-southeast-2:652507618334:layer:ffmpeg:1"),
+			aws.String("arn:aws:lambda:ap-southeast-2:652507618334:layer:ffprobe:1"),
+		},
 	})
 	if err != nil {
+		log.Printf("ERR: %+v", err)
 		return err
 	}
 	log.Printf("created: %+v", conf)
@@ -96,4 +105,12 @@ func (d *deploy) update(z []byte) error {
 	}
 	log.Printf("updated: %+v", conf)
 	return nil
+}
+
+func (d *deploy) destroy() error {
+	log.Printf("deleting function...")
+	_, err := d.l.DeleteFunction(&lambda.DeleteFunctionInput{
+		FunctionName: aws.String(d.fnName),
+	})
+	return err
 }

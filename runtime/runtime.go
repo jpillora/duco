@@ -53,6 +53,9 @@ func (r *Runtime) startDevelopment() error {
 }
 
 func (r *Runtime) fn() duco.Func {
+	for _, fn := range r.fns {
+		return fn
+	}
 	fn, ok := r.fns["myhandler"]
 	if !ok {
 		panic("no func")
@@ -83,6 +86,9 @@ func (r *Runtime) invokeNext() error {
 		headers: resp.Header,
 		fnIn:    resp.Body,
 	}
+	if inv.id() == "" {
+		return nil //skip no id...
+	}
 	inv.handle()
 	return nil
 }
@@ -106,16 +112,6 @@ func (i *invocation) id() string {
 
 func (i *invocation) logf(format string, args ...interface{}) {
 	id := i.id()
-
-	if id == "" {
-		sb := &strings.Builder{}
-		fmt.Fprintf(sb, "headers (%d, %v)", len(i.headers), i.headers != nil)
-		for k, v := range i.headers {
-			fmt.Fprintf(sb, " [%s = %s]", k, strings.Join(v, ", "))
-		}
-		log.Panicf("no id %s", sb.String())
-	}
-
 	prefix := fmt.Sprintf("[invocation %s#%d] ", id[0:6], i.n)
 	log.Printf(prefix+format, args...)
 }

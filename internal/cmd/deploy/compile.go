@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -24,8 +25,8 @@ func compile(target string, dest io.Writer) error {
 	}
 	log.Printf("golist: %#v", l.Module)
 	//not a main package, write temp main
-	if !l.Module.Main {
-		tempTarget, err := tempMain(target)
+	if !l.IsMain() {
+		tempTarget, err := tempMain(target, l.ImportPath)
 		if err != nil {
 			return err
 		}
@@ -38,7 +39,7 @@ func compile(target string, dest io.Writer) error {
 		target,
 		"build",
 		"-trimpath",
-		"-ldflags", "-v -s -w",
+		"-ldflags", "-s -w",
 		"-v",
 		"-o", "/dev/stdout",
 		target,
@@ -61,8 +62,12 @@ func goExec(stdout io.Writer, wd string, args ...string) error {
 	return nil
 }
 
-func tempMain(target string) (string, error) {
-	const maingo = `package main
+func tempMain(target, importPath string) (string, error) {
+	s, err := os.Stat(target)
+	if err != nil {
+		panic("should not get here")
+	}
+	const mainTemplate = `package main
 	import (
 		fn "%s"
 
@@ -73,13 +78,14 @@ func tempMain(target string) (string, error) {
 		g.Add(fn.New())
 		g.Start()
 	}`
+	mainGoFile := fmt.Sprintf(mainTemplate, importPath)
 	tempDir := filepath.Join(target, "tmp", "bootstrap")
-	if err := os.MkdirAll(tempDir, 0644); err != nil {
+	if err := os.MkdirAll(tempDir, s.Mode().Perm()); err != nil {
 		os.RemoveAll(tempDir)
 		return "", err
 	}
 	tempMain := filepath.Join(tempDir, "main.go")
-	if err := ioutil.WriteFile(tempMain, []byte(maingo), 0644); err != nil {
+	if err := ioutil.WriteFile(tempMain, []byte(mainGoFile), s.Mode().Perm()); err != nil {
 		os.RemoveAll(tempDir)
 		return "", err
 	}
