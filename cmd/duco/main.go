@@ -11,7 +11,8 @@ import (
 func main() {
 	opts.
 		New(&struct{}{}).
-		Name("github.com/jpillora/duco").
+		Name("duco").
+		Repo("github.com/jpillora/duco").
 		AddCommand(deploy.Command()).
 		AddCommand(invoke.Command()).
 		AddCommand(layer.Command()).

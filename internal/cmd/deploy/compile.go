@@ -30,7 +30,7 @@ func compile(target string, dest io.Writer) error {
 		if err != nil {
 			return err
 		}
-		// defer os.RemoveAll(tempTarget)
+		defer os.RemoveAll(tempTarget)
 		target = tempTarget
 	}
 	//compile target directly into the buffer
@@ -79,7 +79,7 @@ func tempMain(target, importPath string) (string, error) {
 		g.Start()
 	}`
 	mainGoFile := fmt.Sprintf(mainTemplate, importPath)
-	tempDir := filepath.Join(target, "tmp", "bootstrap")
+	tempDir := filepath.Join(target, "tmp-bootstrap")
 	if err := os.MkdirAll(tempDir, s.Mode().Perm()); err != nil {
 		os.RemoveAll(tempDir)
 		return "", err
@@ -89,6 +89,5 @@ func tempMain(target, importPath string) (string, error) {
 		os.RemoveAll(tempDir)
 		return "", err
 	}
-	log.Printf("tmp: %s", tempMain)
 	return tempDir, nil
 }

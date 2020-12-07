@@ -19,3 +19,6 @@ func main() {
 duco deploy <path-to-my-handler>
 ```
 
+### CF
+
+https://godoc.org/github.com/awslabs/goformation/cloudformation/lambda#Function

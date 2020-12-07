@@ -143,7 +143,7 @@ func (i *invocation) handle() {
 		i.respond(true, strings.NewReader(err.Error()))
 	}
 	//close pipe which closes response body
-	i.fnOut.Close()
+	fnOutWrapper.Close()
 }
 
 func (i *invocation) Write(b []byte) (int, error) {
@@ -156,6 +156,9 @@ func (i *invocation) Write(b []byte) (int, error) {
 }
 
 func (i *invocation) Close() error {
+	if !i.responded {
+		i.respond(false, nil)
+	}
 	return i.fnOut.Close()
 }
 
